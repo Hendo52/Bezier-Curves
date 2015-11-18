@@ -1,7 +1,23 @@
 // N Degree Bezier Curve Test
-// I should make cubes that display their x, y and z coods on each face
+/* So many problems
+1. No Bernstein polynomails (makes it really computationally ineffecient. This will become a big problem later.)
+2. Curve formula is quartic, not generic 
+3. Curve is bezier not bezier spline. aka b-spline. Creates a problem for long twisty curves (see 1.)
+3. Profile coordinates do not rotate so that they are perpendicular to the curve (view from side)
+4. The last polygon in each stack of triangles causes a problem
+5. The encoding function is poorly formatted and that causes problems when I try to input it to other things. This should be a simple matter of concatinating them but I cant get this to work.
+6. More than half the polygons are missing for 3 different reasons.
+    a) upside down triangles are not being generated yet (easy to fix)
+    b) top most layer is not being generated because there is no profile at the very top (easy to fix)
+    c) two towers of traingles are missing (!!!unknown cause!!!)
+
+*/
+
+
 module bezier (ControlMatrix,order,showcontrols,size, res, ps, pr, p0a, pna, red,green,blue)
 {
+//These create a quartic cubic curve. See this gif 
+// https://en.wikipedia.org/wiki/B%C3%A9zier_curve#/media/File:B%C3%A9zier_4_big.gif
 function a1             (t)       = (1-t)*CM[0]+t*CM[1];
 function a2             (t)       = (1-t)*CM[1]+t*CM[2];
 function a3             (t)       = (1-t)*CM[2]+t*CM[3];
@@ -9,14 +25,35 @@ function b1             (t)       = (1-t)*a1(t)+t*a2(t);
 function b2             (t)       = (1-t)*a2(t)+t*a3(t);
 function curve          (t)       = (1-t)*b1(t)+t*b2(t); 
 
+//factorials
 function fac            (f)       = (f==0?1:fac(f-1)*f);  
-function comb           (n,k)     = (fac(n))/(fac(k)*(fac(n-k)));    
-function order          (CM)      = (len(CM)-1);                         
+//combinations
+function comb           (n,k)     = (fac(n))/(fac(k)*(fac(n-k)));
+    //order of the curve
+function order          (CM)      = (len(CM)-1);     
+//sigma?
+function sum (n) = ((n*(n+1))/2);
+//Bernstein's rule
+function bern (i,n,t) = (comb(n,i))*(pow(t,i))*(pow(1-t,n-i));
+//Pascals rule
+function Prule (x,y) = (y>x?0:(y==0?1:(x==y?1:comb((x-1),y)+comb((x-1),(y-1)))));
+//a line of pascals triangle
+function Pline (L) = [for(i=[0:1:L])Prule(l,i)];
+//a matrix of pascals triangle values
+function Pmatrix (n) = [for(i=[0:1:n])[for(j=[0:1:n])Prule(i,j)]];
+// a matrix of ticks (Bernstein)
+function TM (t) = [for(i=[0:1:(order(CM))])[pow(t,(order(CM)-i))]];
+// a matrix of Bernstein polynomials
+function bernmatrix (n,t) = [for(i=[0:1:3])[for(t=[0:1:3])(bern (i,i,-order))]];
+  
+//creates a profile from the polygon radius (pr) and polygon sides (ps)variables                   
 function profilecoords  ()        = [for(i=[0:1:ps-1])[pr*(cos(360/ps*i)), pr*(sin(360/ps*i)),0]];
+    //creates the pink faces
 function profilefaces   ()        = [for(i=[0:1:ps-1])[0,i,i+1]];
+    // The polyhedrons verticy coordinates
 function phcoords       ()        = [for(i=[1:1:ps-1],j=[0:1/res:1]) profilecoords()[i]+curve(j)];
     
-
+//These functions create the numbers that order the faces in the polygon. The pattern is bottom left of the rightangled triangle, top, right. Repeat towards the top, then repeat counter clockwise.
 function encoding1      (j)        = [for(i=[0:1:res-2]) [i,i+1,i+res]+[j,j,j]];
 function encoding2      ()         = [for(j=[0:res:((res)*ps)])  encoding1(j)];
 
@@ -43,20 +80,20 @@ polyhedron(points=phcoords (), faces =
 
 ], convexity = 1 );
 
-
-translate (phcoords()[0])sphere(3);
+//a debugging sphere useful for checking which order the coords are being generated in.
+translate (phcoords()[0])color ("green") sphere(3);
 
 
 
 
   
-module profile1 (ps,pr,p0a,pna)  {   for(j=[0:1:(ps-2) ]) color([j/ps,j/ps,0])
+module profile (ps,pr,p0a,pna)  {   for(j=[0:1:(ps-2) ]) color([j/ps,j/ps,0])
 polyhedron(points = [ for(i=[0:1:(ps-1)]) profilecoords()[i]],faces = [ for(i=[0:1:(ps-2)]) profilefaces()[i]],convexity=1);  
     
     
 /*profileS*/ /* for (i=[0:1:ps-1])translate(profilecoords()[i]) color([i/ps,i/ps,i/ps]) sphere(1.5,$fn=30); */}  
             
-/*Curve   */  for (t = [0:1/res:1]) {translate(curve(t))color([red,green,blue])profile1 (ps,pr);}
+/*Curve   */  for (t = [0:1/res:1]) {translate(curve(t))color([red,green,blue])profile (ps,pr);}
 
 /*Controls*/  if  (controls ==true){ for (i=[0.01:1:order]) {
 /*Points  */  translate (CM[i])color([(i/order)*red,(i/order)*green,(i/order)*blue])sphere(size,$fn =30);
@@ -75,49 +112,4 @@ bezier(CM = [([  0,    0,   00 ]),
 
 
 
-/*    
-// https://youtu.be/qhQrRCJ-mVg?t=5m44s
-    
-echo("Bmatrix =");
-for (i = [0 : 1 : order-1]) {  echo(bernmatrix(1,1)[i] ); };
-    
-*/  
-    
-//multmatrix(m= [ rotate ([0,0,90]) CM[0] and CM[order]
 
-
-
-
-
-    //create a function that works out the values the spheres are at in matrix form
-    // this may require mult matrix, an understanding of v in rotate and cross products.
-    // echo(cross([2, 3, 4], [5, 6, 7]));  
-    // create a function that lists the order of the faces i.e. 1,2,3  1,3,4  1,4,5  1,5,6  etc
-    // create a polygon using the function
-    // create a second polygon that accepts a different value of v
-    // create a polyhedron by linking 1a, 1b and 2a with 2a, 2b and 1b.
-
-
-/*
-
-//      Curve:
-
-bezier curve should be fully generic - watch lecture, yet again
-bezier curve should be optimized. My pascals table is distinct form one in lecture. Look up "binomial series".
-b spline my bezier
-
-//      Profile:
-profile should be n seperate bezier curves in a pattern
-profile should take circle or and 2d shape
-
-
-
-//      Polyhedron
-to draw a pattern I translate forwad by diamter, roate rotate around center n number of time by n/360 degrees.
-in this new way the profile should always be perpendicular to the central spine?
-
-b spline surfaces       https://www.youtube.com/watch?v=qhQrRCJ-mVg
-Bezier Formula          https://youtu.be/2HvH9cmHbG4?t=19m20s
-
-Volume calculations of a polyhedron
-*/
