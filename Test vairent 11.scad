@@ -17,7 +17,9 @@
 module bezier (ControlMatrix,order,showcontrols,size, res, ps, pr, p0a, pna, red,green,blue)
 {
 //These create a quartic cubic curve. See this gif 
+//takes in tick, outputs curve values
 // https://en.wikipedia.org/wiki/B%C3%A9zier_curve#/media/File:B%C3%A9zier_4_big.gif
+
 function a1             (t)       = (1-t)*CM[0]+t*CM[1];
 function a2             (t)       = (1-t)*CM[1]+t*CM[2];
 function a3             (t)       = (1-t)*CM[2]+t*CM[3];
@@ -25,17 +27,17 @@ function b1             (t)       = (1-t)*a1(t)+t*a2(t);
 function b2             (t)       = (1-t)*a2(t)+t*a3(t);
 function curve          (t)       = (1-t)*b1(t)+t*b2(t); 
 
-//factorials
+//factorials takes in integer n returns factorial of n
 function fac            (f)       = (f==0?1:fac(f-1)*f);  
-//combinations
+//combinations, takes in n and k and returns n choose k
 function comb           (n,k)     = (fac(n))/(fac(k)*(fac(n-k)));
-    //order of the curve
+//determines the length of the matrix CM
 function order          (CM)      = (len(CM)-1);     
-//sigma?
+//sigma? I think this is a function that does summations. Maybe it works, maybe it doesnt
 function sum (n) = ((n*(n+1))/2);
-//Bernstein's rule
+//Bernstein's rule takes in intergers i,n,t and returns bernstien polynomial value.
 function bern (i,n,t) = (comb(n,i))*(pow(t,i))*(pow(1-t,n-i));
-//Pascals rule
+//Pascals rule takes in 
 function Prule (x,y) = (y>x?0:(y==0?1:(x==y?1:comb((x-1),y)+comb((x-1),(y-1)))));
 //a line of pascals triangle
 function Pline (L) = [for(i=[0:1:L])Prule(l,i)];
@@ -46,27 +48,27 @@ function TM (t) = [for(i=[0:1:(order(CM))])[pow(t,(order(CM)-i))]];
 // a matrix of Bernstein polynomials
 function bernmatrix (n,t) = [for(i=[0:1:3])[for(t=[0:1:3])(bern (i,i,-order))]];
   
-//creates a profile from the polygon radius (pr) and polygon sides (ps)variables                   
+//creates a set of profile coords from the polygon radius (pr) and polygon sides (ps)variables                   
 function profilecoords  ()        = [for(i=[0:1:ps-1])[pr*(cos(360/ps*i)), pr*(sin(360/ps*i)),0]];
-    //creates the pink faces
+//creates the pink faces 
 function profilefaces   ()        = [for(i=[0:1:ps-1])[0,i,i+1]];
-    // The polyhedrons verticy coordinates
+// The polyhedrons verticy coordinates
 function phcoords       ()        = [for(i=[1:1:ps-1],j=[0:1/res:1]) profilecoords()[i]+curve(j)];
     
 //These functions create the numbers that order the faces in the polygon. The pattern is bottom left of the rightangled triangle, top, right. Repeat towards the top, then repeat counter clockwise.
-function encoding1      (j)        = [for(i=[0:1:res-2]) [i,i+1,i+res]+[j,j,j]];
-function encoding2      ()         = [for(j=[0:res:((res)*ps)])  encoding1(j)];
+function encoding1      (j)        = [for(i=[0:1:res-2]) [i,i+1,i+res]+[j,j,j] ];
+function encoding2      ()         = [for(j=[0:res:res*ps])  concat(encoding1(j))];
 
 
 echo(encoding2());  
-echo(ps, "sides"); 
-echo(res, "divisons"); 
+//echo([for(i=[0:1:1])encoding2()[i]]);
+echo(concat(encoding2())); //does nothing
+echo(concat([[1],[2],[3],[4]])); 
 
-
-//polyhedron(points=[for (i=[0:1:res])phcoords ()[i]], faces =[for (j=[0:1:res])encoding2()[0][j]],     convexity = 1 );   
-
+polyhedron( points= phcoords (), faces = encoding2()[1], convexity = 1 );   
 
 // This is the same as the echo except with the excess brackets taken out. I cant seem to get the concat function working.
+/*
 polyhedron(points=phcoords (), faces =   
 
 [[0, 1, 20], [1, 2, 21], [2, 3, 22], [3, 4, 23], [4, 5, 24], [5, 6, 25], [6, 7, 26], [7, 8, 27], [8, 9, 28], [9, 10, 29], [10, 11, 30], [11, 12, 31], [12, 13, 32], [13, 14, 33], [14, 15, 34], [15, 16, 35], [16, 17, 36], [17, 18, 37], [18, 19, 38],
@@ -79,7 +81,7 @@ polyhedron(points=phcoords (), faces =
  [140, 141, 160], [141, 142, 161], [142, 143, 162], [143, 144, 163], [144, 145, 164], [145, 146, 165], [146, 147, 166], [147, 148, 167], [148, 149, 168], [149, 150, 169], [150, 151, 170], [151, 152, 171], [152, 153, 172], [153, 154, 173], [154, 155, 174], [155, 156, 175], [156, 157, 176], [157, 158, 177], [158, 159, 178],
 
 ], convexity = 1 );
-
+*/
 //a debugging sphere useful for checking which order the coords are being generated in.
 translate (phcoords()[0])color ("green") sphere(3);
 
